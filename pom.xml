@@ -74,12 +74,20 @@
 		</dependency>
 		
 		<!-- Dependency to enable response in XML format thru' Accept Header' -->
-		
 		<dependency> 
 			<groupId>com.fasterxml.jackson.dataformat</groupId> 
 			<artifactId>jackson-dataformat-xml</artifactId>
 		</dependency>
 		
+		<!-- Dependency to enable Circuit Breaker features -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-aop</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-spring-boot2</artifactId>
+		</dependency>
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

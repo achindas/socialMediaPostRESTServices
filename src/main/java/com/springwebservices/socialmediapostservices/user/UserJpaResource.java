@@ -7,6 +7,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
@@ -18,11 +20,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.springwebservices.socialmediapostservices.jpa.PostRepository;
 import com.springwebservices.socialmediapostservices.jpa.UserRepository;
 
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
+import io.github.resilience4j.retry.annotation.Retry;
 import jakarta.validation.Valid;
 
 @RestController
@@ -31,6 +38,9 @@ public class UserJpaResource {
 	private UserRepository userRepository;
 	
 	private PostRepository postRepository;
+	
+	private Logger logger = 
+			LoggerFactory.getLogger(UserJpaResource.class);
 	
 	@Autowired
 	private postServiceConfiguration postConfig;
@@ -41,6 +51,7 @@ public class UserJpaResource {
 	}
 
 	@GetMapping("/jpa/users")
+	@Bulkhead(name="get-all-users-api")
 	public MappingJacksonValue retrieveAllUsers() {
 		
 		//Test
@@ -59,6 +70,7 @@ public class UserJpaResource {
 	//WebMvcLinkBuilder
 	
 	@GetMapping("/jpa/users/{id}")
+	@RateLimiter(name="get-one-user-api")
 	public MappingJacksonValue retrieveUser(@PathVariable int id) {
 		Optional<User> user = userRepository.findById(id);
 		
@@ -83,6 +95,7 @@ public class UserJpaResource {
 
 	
 	@GetMapping("/jpa/users/{id}/posts")
+	@CircuitBreaker(name = "get-user-posts-api", fallbackMethod = "circuitBreakerResponse")		
 	public List<Post> retrievePostsForUser(@PathVariable int id) {
 		Optional<User> user = userRepository.findById(id);
 		
@@ -143,6 +156,18 @@ public class UserJpaResource {
 		return ResponseEntity.created(location).build();
 
 	}
-
+	
+	@GetMapping("/broken-api")
+	@Retry(name = "broken-api", fallbackMethod = "circuitBreakerResponse")
+	public String brokenApi() {
+		logger.info("Broken API call received");
+		ResponseEntity<String> forEntity = new RestTemplate().getForEntity("http://localhost:8080/broken-url", 
+					String.class);
+		return forEntity.getBody();
+	}
+	
+	public String circuitBreakerResponse(Exception ex) {
+		return "System is down! Circuit Breaker activated. Please try after sometime";
+	}
 	
 }
